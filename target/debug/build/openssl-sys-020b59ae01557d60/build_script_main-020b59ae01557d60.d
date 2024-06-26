@@ -1,0 +1,10 @@
+/home/breno/Documentos/Projetos/crab/target/debug/build/openssl-sys-020b59ae01557d60/build_script_main-020b59ae01557d60: /home/breno/.var/app/com.jetbrains.IntelliJ-IDEA-Ultimate/data/cargo/registry/src/index.crates.io-6f17d22bba15001f/openssl-sys-0.9.102/build/main.rs /home/breno/.var/app/com.jetbrains.IntelliJ-IDEA-Ultimate/data/cargo/registry/src/index.crates.io-6f17d22bba15001f/openssl-sys-0.9.102/build/cfgs.rs /home/breno/.var/app/com.jetbrains.IntelliJ-IDEA-Ultimate/data/cargo/registry/src/index.crates.io-6f17d22bba15001f/openssl-sys-0.9.102/build/find_normal.rs /home/breno/.var/app/com.jetbrains.IntelliJ-IDEA-Ultimate/data/cargo/registry/src/index.crates.io-6f17d22bba15001f/openssl-sys-0.9.102/build/run_bindgen.rs
+
+/home/breno/Documentos/Projetos/crab/target/debug/build/openssl-sys-020b59ae01557d60/build_script_main-020b59ae01557d60.d: /home/breno/.var/app/com.jetbrains.IntelliJ-IDEA-Ultimate/data/cargo/registry/src/index.crates.io-6f17d22bba15001f/openssl-sys-0.9.102/build/main.rs /home/breno/.var/app/com.jetbrains.IntelliJ-IDEA-Ultimate/data/cargo/registry/src/index.crates.io-6f17d22bba15001f/openssl-sys-0.9.102/build/cfgs.rs /home/breno/.var/app/com.jetbrains.IntelliJ-IDEA-Ultimate/data/cargo/registry/src/index.crates.io-6f17d22bba15001f/openssl-sys-0.9.102/build/find_normal.rs /home/breno/.var/app/com.jetbrains.IntelliJ-IDEA-Ultimate/data/cargo/registry/src/index.crates.io-6f17d22bba15001f/openssl-sys-0.9.102/build/run_bindgen.rs
+
+/home/breno/.var/app/com.jetbrains.IntelliJ-IDEA-Ultimate/data/cargo/registry/src/index.crates.io-6f17d22bba15001f/openssl-sys-0.9.102/build/main.rs:
+/home/breno/.var/app/com.jetbrains.IntelliJ-IDEA-Ultimate/data/cargo/registry/src/index.crates.io-6f17d22bba15001f/openssl-sys-0.9.102/build/cfgs.rs:
+/home/breno/.var/app/com.jetbrains.IntelliJ-IDEA-Ultimate/data/cargo/registry/src/index.crates.io-6f17d22bba15001f/openssl-sys-0.9.102/build/find_normal.rs:
+/home/breno/.var/app/com.jetbrains.IntelliJ-IDEA-Ultimate/data/cargo/registry/src/index.crates.io-6f17d22bba15001f/openssl-sys-0.9.102/build/run_bindgen.rs:
+
+# env-dep:CARGO_PKG_VERSION=0.9.102
