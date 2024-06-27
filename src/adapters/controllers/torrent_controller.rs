@@ -5,9 +5,10 @@ use crate::usecases::extract_torrent_info::extract_torrent_info;
 use crate::usecases::read_file::read_file;
 use crate::usecases::tracker_request::make_tracker_request;
 use crate::adapters::presenters::torrent_presenter::print_torrent_info;
-use crate::domain::entities::{Torrent};
+use crate::domain::entities::Torrent;
 
-pub async fn handle_torrent(file_path: &str) -> Result<(), TorrentError> {
+pub async fn handle_torrent(file_path: &str) -> Result<(), TorrentError>
+{
     let buffer = read_file(file_path)?;
 
     let decoded_value: Torrent = serde_bencode::from_bytes(&buffer)

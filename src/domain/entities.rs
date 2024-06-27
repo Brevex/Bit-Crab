@@ -26,9 +26,6 @@ pub struct TrackerRequest
 #[derive(Debug, Clone, Deserialize)]
 pub struct TrackerResponse
 {
-    pub interval: usize,
-    pub complete: Option<usize>,
-    pub incomplete: Option<usize>,
     pub peers: Option<Peers>,
 }
 
@@ -104,7 +101,6 @@ impl<'de> Deserialize<'de> for Hashes
                 ))
             }
         }
-
         deserializer.deserialize_bytes(HashesVisitor)
     }
 }

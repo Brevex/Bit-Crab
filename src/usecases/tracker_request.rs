@@ -12,8 +12,8 @@ pub async fn make_tracker_request(torrent_info: &TorrentInfo, peer_id: &str, por
 
     let request = create_tracker_request(peer_id, port, length);
     let tracker_url = build_tracker_url(&announce_url, &request, &encoded_info_hash)?;
-
     let response_bytes = send_tracker_request(&tracker_url).await?;
+
     println!("Raw Tracker Response: {:?}", response_bytes);
 
     parse_tracker_response(&response_bytes)
@@ -83,6 +83,7 @@ fn parse_tracker_response(response_bytes: &bytes::Bytes) -> Result<TrackerRespon
 fn urlencode(t: &[u8; 20]) -> String
 {
     let mut encoded = String::with_capacity(3 * t.len());
+
     for &byte in t
     {
         encoded.push('%');
