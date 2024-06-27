@@ -2,9 +2,10 @@ use serde_json::Value;
 use crate::domain::errors::TorrentError;
 use crate::usecases::extract_torrent_info::extract_torrent_info;
 use crate::usecases::read_file::read_file;
+use crate::usecases::tracker_request::make_tracker_request;
 use crate::adapters::presenters::torrent_presenter::print_torrent_info;
 
-pub fn handle_torrent(file_path: &str) -> Result<(), TorrentError>
+pub async fn handle_torrent(file_path: &str) -> Result<(), TorrentError>
 {
     let buffer = read_file(file_path)?;
 
@@ -14,8 +15,21 @@ pub fn handle_torrent(file_path: &str) -> Result<(), TorrentError>
     let torrent_info = extract_torrent_info(&decoded_value.0);
     print_torrent_info(&torrent_info);
 
+    let peer_id = "00112233445566778899";
+    let port = 6881;
+    let tracker_response = make_tracker_request(&torrent_info, peer_id, port).await?;
+
+    if let Some(peers) = tracker_response.peers
+    {
+        for peer in peers.0
+        {
+            println!("{}:{}", peer.ip(), peer.port());
+        }
+    }
+    else { println!("No peers found in the tracker response."); }
     Ok(())
 }
+
 
 fn decode_bencoded_value(encoded_value: &[u8]) -> Result<(Value, &[u8]), String>
 {
@@ -94,7 +108,8 @@ fn decode_string(encoded_value: &[u8]) -> Result<(Value, &[u8]), String>
             let start = colon_pos + 1;
             let end = start + len;
 
-            if encoded_value.len() >= end {
+            if encoded_value.len() >= end
+            {
                 return Ok((
                     String::from_utf8_lossy(&encoded_value[start..end]).into(),
                     &encoded_value[end..],
