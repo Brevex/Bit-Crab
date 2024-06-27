@@ -16,7 +16,6 @@ impl<'de> Visitor<'de> for PeersVisitor
     {
         formatter.write_str("6 bytes, the first 4 bytes are a peer's IP address and the last 2 are a peer's port number")
     }
-
     fn visit_bytes<E>(self, bytes: &[u8]) -> Result<Self::Value, E>
     where
         E: de::Error,
@@ -25,11 +24,9 @@ impl<'de> Visitor<'de> for PeersVisitor
         {
             return Err(E::custom(format!("length is {}", bytes.len())));
         }
-
         let peers = bytes.chunks_exact(6)
             .map(|chunk| parse_peer(chunk))
             .collect::<Result<Vec<_>, E>>()?;
-
         Ok(Peers(peers))
     }
 }
