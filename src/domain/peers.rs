@@ -27,6 +27,7 @@ impl<'de> Visitor<'de> for PeersVisitor
         let peers = bytes.chunks_exact(6)
             .map(|chunk| parse_peer(chunk))
             .collect::<Result<Vec<_>, E>>()?;
+
         Ok(Peers(peers))
     }
 }
@@ -65,12 +66,14 @@ where
     }
     let ip = Ipv4Addr::new(bytes[0], bytes[1], bytes[2], bytes[3]);
     let port = u16::from_be_bytes([bytes[4], bytes[5]]);
+
     Ok(SocketAddrV4::new(ip, port))
 }
 
 fn serialize_peer(peer: &SocketAddrV4) -> Vec<u8>
 {
     let mut bytes = Vec::with_capacity(6);
+    
     bytes.extend_from_slice(&peer.ip().octets());
     bytes.extend_from_slice(&peer.port().to_be_bytes());
     bytes

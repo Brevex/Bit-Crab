@@ -15,6 +15,7 @@ fn print_tracker_url(torrent_info: &TorrentInfo)
         .announce
         .as_deref()
         .unwrap_or("Tracker URL not found.");
+
     println!("Tracker URL: {}", tracker_url);
 }
 
@@ -23,6 +24,7 @@ fn print_length(torrent_info: &TorrentInfo)
     let length = torrent_info
         .length
         .map_or("File length not found.".to_string(), |l| format!("{} bytes", l));
+
     println!("Length: {}", length);
 }
 
@@ -31,6 +33,7 @@ fn print_piece_length(torrent_info: &TorrentInfo)
     let piece_length = torrent_info
         .piece_length
         .map_or("Piece length not found.".to_string(), |pl| format!("{}", pl));
+
     println!("Piece Length: {}", piece_length);
 }
 

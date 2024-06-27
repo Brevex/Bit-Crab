@@ -82,7 +82,10 @@ impl<'de> Deserialize<'de> for Hashes
         {
             type Value = Hashes;
 
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result
+            fn expecting(
+                &self,
+                formatter: &mut
+                std::fmt::Formatter) -> std::fmt::Result
             {
                 formatter.write_str("a byte string whose length is a multiple of 20")
             }
@@ -91,7 +94,8 @@ impl<'de> Deserialize<'de> for Hashes
             where
                 E: serde::de::Error,
             {
-                if v.len() % 20 != 0 {
+                if v.len() % 20 != 0
+                {
                     return Err(E::custom(format!("length is {}", v.len())));
                 }
                 Ok(Hashes(
@@ -111,7 +115,10 @@ impl Serialize for Hashes
     where
         S: Serializer,
     {
-        let single_slice: Vec<u8> = self.0.iter().flatten().copied().collect();
+        let single_slice: Vec<u8> = self
+            .0.iter().flatten()
+            .copied().collect();
+
         serializer.serialize_bytes(&single_slice)
     }
 }
