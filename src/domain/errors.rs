@@ -9,8 +9,8 @@ pub enum TorrentError
     #[error("IO Error: {0}")]
     IoError(#[from] io::Error),
 
-    #[error("Decode Error: {0}")]
-    DecodeError(String),
+    #[error("Network Error: {0}")]
+    NetworkError(#[from] reqwest::Error),
 
     #[error("UTF-8 Error: {0}")]
     Utf8Error(#[from] Utf8Error),
