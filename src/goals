@@ -1,0 +1,4 @@
+Segurança: Garanta que as funções que lidam com dados
+externos, como read_file e decode_torrent, sejam robustas
+contra ataques de injeção ou arquivos maliciosos.
+

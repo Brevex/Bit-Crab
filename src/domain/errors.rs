@@ -17,4 +17,7 @@ pub enum TorrentError
 
     #[error("Parse Int Error: {0}")]
     ParseIntError(#[from] ParseIntError),
+
+    #[error("Torrent parsing error: {0}")]
+    TorrentParsingError(String),
 }
