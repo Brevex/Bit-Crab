@@ -22,8 +22,7 @@ fn print_tracker_url(torrent_info: &TorrentInfo)
 fn print_length(torrent_info: &TorrentInfo)
 {
     let length = torrent_info
-        .length
-        .map_or("File length not found.".to_string(), |l| format!("{} bytes", l));
+        .length.map_or("File length not found.".to_string(), |l| format!("{} bytes", l));
 
     println!("Length: {}", length);
 }

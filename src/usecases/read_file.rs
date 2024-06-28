@@ -1,16 +1,12 @@
-use std::fs::File;
-use std::io::Read;
-use anyhow::{Context, Result};
+use tokio::fs::File;
+use tokio::io::AsyncReadExt;
+use anyhow::Result;
 
-pub fn read_file(file_path: &str) -> Result<Vec<u8>>
+pub async fn read_file(file_path: &str) -> Result<Vec<u8>>
 {
-    let mut file = File::open(file_path)
-        .context("Failed to open file")?;
-
+    let mut file = File::open(file_path).await?;
     let mut buffer = Vec::new();
 
-    file.read_to_end(&mut buffer)
-        .context("Failed to read file")?;
-
+    file.read_to_end(&mut buffer).await?;
     Ok(buffer)
 }
