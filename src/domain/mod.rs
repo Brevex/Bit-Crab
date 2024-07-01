@@ -1,2 +1,2 @@
-pub mod entities;
+pub(crate) mod entities;
 pub mod errors;
