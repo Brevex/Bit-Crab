@@ -5,8 +5,7 @@ use serde_with::{serde_as, DisplayFromStr};
 
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct TorrentInfo
-{
+pub struct TorrentInfo {
     #[serde_as(as = "Option<DisplayFromStr>")]
     pub announce: Option<Url>,
     pub length: Option<i64>,
@@ -17,16 +16,14 @@ pub struct TorrentInfo
 
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Torrent
-{
+pub struct Torrent {
     #[serde_as(as = "DisplayFromStr")]
     pub announce: Url,
     pub info: Info,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Info
-{
+pub struct Info {
     pub name: String,
     #[serde(rename = "piece length")]
     pub piece_length: usize,
@@ -37,15 +34,13 @@ pub struct Info
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
-pub enum Keys
-{
+pub enum Keys {
     SingleFile { length: usize },
     MultiFile { files: Vec<File> },
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct File
-{
+pub struct File {
     pub length: usize,
     pub path: Vec<String>,
 }
@@ -53,10 +48,8 @@ pub struct File
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Hashes(#[serde(with = "serde_bytes")] pub Vec<u8>);
 
-impl Hashes
-{
-    pub fn to_hash_vec(&self) -> Vec<[u8; 20]>
-    {
+impl Hashes {
+    pub fn to_hash_vec(&self) -> Vec<[u8; 20]> {
         self.0.chunks_exact(20)
             .map(|chunk| chunk.try_into().unwrap())
             .collect()
@@ -64,8 +57,7 @@ impl Hashes
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct Peer
-{
+pub struct Peer {
     pub id: Uuid,
     pub ip: String,
     pub port: u16,

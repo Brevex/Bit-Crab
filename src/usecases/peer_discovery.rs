@@ -9,8 +9,7 @@ use rand::distributions::Alphanumeric;
 use crate::domain::errors::TorrentError;
 use crate::domain::entities::{TorrentInfo, Peer};
 
-pub async fn request_peers(torrent_info: &TorrentInfo) -> Result<Vec<Peer>>
-{
+pub async fn request_peers(torrent_info: &TorrentInfo) -> Result<Vec<Peer>> {
     let tracker_url = get_tracker_url(torrent_info)?;
     let info_hash_encoded = get_info_hash_encoded(torrent_info)?;
     let peer_id = generate_peer_id();
@@ -28,8 +27,7 @@ pub async fn request_peers(torrent_info: &TorrentInfo) -> Result<Vec<Peer>>
     Ok(peers)
 }
 
-fn get_tracker_url(torrent_info: &TorrentInfo) -> std::result::Result<&Url, TorrentError>
-{
+fn get_tracker_url(torrent_info: &TorrentInfo) -> std::result::Result<&Url, TorrentError> {
     torrent_info
         .announce
         .as_ref()
@@ -38,8 +36,7 @@ fn get_tracker_url(torrent_info: &TorrentInfo) -> std::result::Result<&Url, Torr
         ))
 }
 
-fn get_info_hash_encoded(torrent_info: &TorrentInfo) -> Result<String>
-{
+fn get_info_hash_encoded(torrent_info: &TorrentInfo) -> Result<String> {
     let info_hash = hex::decode(
         torrent_info
             .info_hash
@@ -56,8 +53,7 @@ fn get_info_hash_encoded(torrent_info: &TorrentInfo) -> Result<String>
         .collect::<String>())
 }
 
-fn generate_peer_id() -> String
-{
+fn generate_peer_id() -> String {
     rand::thread_rng()
         .sample_iter(&Alphanumeric)
         .take(20)
@@ -65,8 +61,7 @@ fn generate_peer_id() -> String
         .collect()
 }
 
-fn get_file_length(torrent_info: &TorrentInfo) -> std::result::Result<i64, TorrentError>
-{
+fn get_file_length(torrent_info: &TorrentInfo) -> std::result::Result<i64, TorrentError> {
     torrent_info
         .length
         .ok_or_else(|| TorrentError::TorrentParsingError(
@@ -74,21 +69,18 @@ fn get_file_length(torrent_info: &TorrentInfo) -> std::result::Result<i64, Torre
         ))
 }
 
-async fn send_tracker_request(url: &str) -> Result<bytes::Bytes>
-{
+async fn send_tracker_request(url: &str) -> Result<bytes::Bytes> {
     let client = Client::new();
     let response = client.get(url).send().await?.bytes().await?;
     Ok(response)
 }
 
-fn extract_peers_compact(response: &bytes::Bytes) -> Result<Vec<u8>>
-{
+fn extract_peers_compact(response: &bytes::Bytes) -> Result<Vec<u8>> {
     let decoded_response: HashMap<String, Value> =
         serde_bencode::from_bytes(&response)
             .context("Failed to decode bencode response")?;
 
-    match decoded_response.get("peers")
-    {
+    match decoded_response.get("peers") {
         Some(Value::Bytes(bytes)) => Ok(bytes.clone()),
         _ => Err(TorrentError::TorrentParsingError(
             "Peers not found".to_string()).into()
@@ -96,15 +88,13 @@ fn extract_peers_compact(response: &bytes::Bytes) -> Result<Vec<u8>>
     }
 }
 
-fn parse_peers(peers_compact: Vec<u8>) -> Vec<Peer>
-{
+fn parse_peers(peers_compact: Vec<u8>) -> Vec<Peer> {
     peers_compact
         .chunks_exact(6)
         .map(|chunk| {
             let ip = format!("{}.{}.{}.{}", chunk[0], chunk[1], chunk[2], chunk[3]);
             let port = u16::from_be_bytes([chunk[4], chunk[5]]);
-            Peer
-            {
+            Peer {
                 id: Uuid::new_v4(),
                 ip,
                 port,
