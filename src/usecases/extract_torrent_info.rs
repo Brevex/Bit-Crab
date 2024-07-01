@@ -1,13 +1,10 @@
 use crate::domain::entities::{Keys, Torrent, TorrentInfo};
 
-pub fn extract_torrent_info(decoded_value: &Torrent, info_hash: &str) -> TorrentInfo
-{
+pub fn extract_torrent_info(decoded_value: &Torrent, info_hash: &str) -> TorrentInfo {
     let announce = Some(decoded_value.announce.clone());
-    let length = if let Keys::SingleFile { length } = &decoded_value.info.keys
-    {
+    let length = if let Keys::SingleFile { length } = &decoded_value.info.keys {
         Some(*length as i64)
-    }
-    else { None };
+    } else { None };
 
     let piece_length = Some(decoded_value.info.piece_length as i64);
     let pieces = Some(decoded_value.info
@@ -16,8 +13,7 @@ pub fn extract_torrent_info(decoded_value: &Torrent, info_hash: &str) -> Torrent
         .collect()
     );
 
-    TorrentInfo
-    {
+    TorrentInfo {
         announce,
         length,
         piece_length,

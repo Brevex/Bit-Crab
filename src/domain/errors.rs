@@ -1,8 +1,7 @@
 use thiserror::Error;
 
 #[derive(Error, Debug)]
-pub enum TorrentError
-{
+pub enum TorrentError {
     #[error("IO Error: {0}")]
     IoError(#[from] std::io::Error),
 
@@ -18,4 +17,3 @@ pub enum TorrentError
     #[error("Torrent parsing error: {0}")]
     TorrentParsingError(String),
 }
-
