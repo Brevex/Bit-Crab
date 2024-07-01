@@ -2,17 +2,16 @@ mod domain;
 mod usecases;
 mod adapters;
 
-use adapters::controllers::torrent_controller::handle_torrent;
-use env_logger::Env;
-use anyhow::Result;
 use log::info;
+use anyhow::Result;
+use env_logger::Env;
+
+use adapters::controllers::torrent_controller::handle_torrent;
 
 #[tokio::main]
 async fn main() -> Result<()>
 {
-    env_logger::Builder::from_env(Env::default()
-        .default_filter_or("info"))
-        .init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
 
     let file_path = "./src/test.torrent";
 

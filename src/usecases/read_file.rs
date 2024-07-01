@@ -1,6 +1,6 @@
+use anyhow::Result;
 use tokio::fs::File;
 use tokio::io::AsyncReadExt;
-use anyhow::Result;
 
 pub async fn read_file(file_path: &str) -> Result<Vec<u8>>
 {
