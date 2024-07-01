@@ -1,19 +1,26 @@
+use url::Url;
+use uuid::Uuid;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 
+#[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct TorrentInfo
 {
-    pub announce: Option<String>,
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    pub announce: Option<Url>,
     pub length: Option<i64>,
+    pub info_hash: Option<String>,
     pub piece_length: Option<i64>,
     pub pieces: Option<Vec<String>>,
-    pub info_hash: Option<String>,
 }
 
+#[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Torrent
 {
-    pub announce: String,
+    #[serde_as(as = "DisplayFromStr")]
+    pub announce: Url,
     pub info: Info,
 }
 
@@ -21,11 +28,9 @@ pub struct Torrent
 pub struct Info
 {
     pub name: String,
-
     #[serde(rename = "piece length")]
     pub piece_length: usize,
     pub pieces: Hashes,
-
     #[serde(flatten)]
     pub keys: Keys,
 }
@@ -34,12 +39,8 @@ pub struct Info
 #[serde(untagged)]
 pub enum Keys
 {
-    SingleFile {
-        length: usize,
-    },
-    MultiFile {
-        files: Vec<File>,
-    },
+    SingleFile { length: usize },
+    MultiFile { files: Vec<File> },
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -60,4 +61,12 @@ impl Hashes
             .map(|chunk| chunk.try_into().unwrap())
             .collect()
     }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct Peer
+{
+    pub id: Uuid,
+    pub ip: String,
+    pub port: u16,
 }
