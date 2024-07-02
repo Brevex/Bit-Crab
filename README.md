@@ -3,3 +3,9 @@
   <h1 align="center">Crab Torrent</h1>
 </p><br>
 
+<p>
+Crab Torrent is a user-friendly application developed in Rust, designed to securely download torrents. It emphasizes 
+  safety and reliability, making sure your downloads are protected from potential threats. With a clean and organized 
+  structure, Crab Torrent ensures a smooth and efficient torrent downloading experience for users, focusing on maintaining 
+  the highest standards of security throughout the process.
+</p>
