@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
-use rand::distributions::Alphanumeric;
-use rand::Rng;
 use reqwest::Client;
 use serde_bencode::value::Value;
 use url::Url;
@@ -41,27 +39,14 @@ fn get_tracker_url(torrent_info: &TorrentInfo) -> std::result::Result<&Url, Torr
 
 fn get_info_hash_encoded(torrent_info: &TorrentInfo) -> Result<String>
 {
-    let info_hash = hex::decode(
-        torrent_info
-            .info_hash
-            .as_ref()
-            .ok_or_else(|| TorrentError::TorrentParsingError("Info hash not found".to_string()))?,
-    )
-    .context("Failed to decode info hash")?;
+    let info_hash = torrent_info
+        .info_hash
+        .ok_or_else(|| TorrentError::TorrentParsingError("Info hash not found".to_string()))?;
 
     Ok(info_hash
         .iter()
         .map(|byte| format!("%{:02x}", byte))
         .collect::<String>())
-}
-
-fn generate_peer_id() -> String
-{
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(20)
-        .map(char::from)
-        .collect()
 }
 
 fn get_file_length(torrent_info: &TorrentInfo) -> std::result::Result<i64, TorrentError>
@@ -83,8 +68,7 @@ fn extract_peers_compact(response: &bytes::Bytes) -> Result<Vec<u8>>
     let decoded_response: HashMap<String, Value> =
         serde_bencode::from_bytes(&response).context("Failed to decode bencode response")?;
 
-    match decoded_response.get("peers")
-    {
+    match decoded_response.get("peers") {
         Some(Value::Bytes(bytes)) => Ok(bytes.clone()),
         _ => Err(TorrentError::TorrentParsingError("Peers not found".to_string()).into()),
     }
@@ -104,4 +88,9 @@ fn parse_peers(peers_compact: Vec<u8>) -> Vec<Peer>
             }
         })
         .collect()
+}
+
+fn generate_peer_id() -> String
+{
+    crate::usecases::utils::generate_peer_id::generate_peer_id()
 }

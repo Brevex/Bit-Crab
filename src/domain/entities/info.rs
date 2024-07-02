@@ -12,9 +12,10 @@ pub struct TorrentInfo
     #[serde_as(as = "Option<DisplayFromStr>")]
     pub announce: Option<Url>,
     pub length: Option<i64>,
-    pub info_hash: Option<String>,
+    pub info_hash: Option<[u8; 20]>,
     pub piece_length: Option<i64>,
-    pub pieces: Option<Vec<String>>,
+    pub pieces: Option<Hashes>,
+    pub info: Option<Info>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -27,6 +28,7 @@ pub struct Info
     #[serde(flatten)]
     pub keys: Keys,
 }
+
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
