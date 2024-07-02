@@ -14,7 +14,7 @@ use crate::domain::entities::piece::Piece;
 
 const RESERVED_BYTES: [u8; 8] = [0; 8];
 const PROTOCOL_STRING: &str = "BitTorrent protocol";
-const BLOCK_SIZE: usize = 16 * 1024; // 16 kiB
+const BLOCK_SIZE: usize = 16 * 1024;
 
 pub async fn download_piece(
     peer_addr: &SocketAddr,
