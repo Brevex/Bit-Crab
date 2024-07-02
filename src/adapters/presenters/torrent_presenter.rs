@@ -33,14 +33,15 @@ pub fn print_torrent_info(torrent_info: &TorrentInfo)
 
     if let Some(info_hash) = &torrent_info.info_hash
     {
-        println!("Info Hash: {}", info_hash);
+        println!("Info Hash: {:?}", info_hash);
     }
     match &torrent_info.pieces
     {
         Some(pieces) => {
             println!("Piece Hashes:");
-            for piece in pieces {
-                println!("{}", piece);
+            for piece in pieces.to_hash_vec()
+            {
+                println!("{:x?}", piece);
             }
         }
         None => println!("Pieces not found.\n"),

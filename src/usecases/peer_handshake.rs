@@ -7,7 +7,6 @@ use anyhow::{bail, Context, Result};
 use sha1::{Digest, Sha1};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
-use uuid::Uuid;
 
 use crate::domain::entities::info::TorrentInfo;
 use crate::domain::entities::piece::Piece;
@@ -16,44 +15,78 @@ const RESERVED_BYTES: [u8; 8] = [0; 8];
 const PROTOCOL_STRING: &str = "BitTorrent protocol";
 const BLOCK_SIZE: usize = 16 * 1024;
 
-pub async fn download_piece(
+pub(crate) async fn download_piece(
     peer_addr: &SocketAddr,
-    info_hash: &[u8],
+    info_hash: &[u8; 20],
     piece_index: u32,
     piece_length: usize,
     torrent_info: &TorrentInfo,
 ) -> Result<()>
 {
-    if info_hash.len() != 20
-    {
-        bail!("info hash must have 20 bytes");
-    }
     let peer_id = generate_peer_id();
-    let mut stream = TcpStream::connect(peer_addr)
+    let mut stream = connect_to_peer(peer_addr).await?;
+    perform_handshake(&mut stream, info_hash, &peer_id).await?;
+    ensure_interested_and_unchoked(&mut stream).await?;
+
+    let piece_data =
+        download_piece_data(&mut stream, piece_index, piece_length, torrent_info).await?;
+
+    if verify_piece(&piece_data, piece_index, torrent_info)
+    {
+        save_piece_to_disk(piece_index, &piece_data)?;
+    }
+    else { bail!("Piece hash does not match"); }
+    Ok(())
+}
+
+async fn connect_to_peer(peer_addr: &SocketAddr) -> Result<TcpStream>
+{
+    TcpStream::connect(peer_addr)
         .await
-        .context("Failed to connect to peer")?;
+        .context("Failed to connect to peer")
+}
 
-    send_handshake(&mut stream, info_hash, &peer_id).await?;
-    receive_handshake(&mut stream).await?;
+async fn perform_handshake(
+    stream: &mut TcpStream,
+    info_hash: &[u8],
+    peer_id: &String,
+) -> Result<()>
+{
+    send_handshake(stream, info_hash, peer_id).await?;
+    receive_handshake(stream).await?;
+    Ok(())
+}
 
-    let bitfield = receive_message(&mut stream).await?;
+async fn ensure_interested_and_unchoked(stream: &mut TcpStream) -> Result<()>
+{
+    let bitfield = receive_message(stream).await?;
     if bitfield[0] != 5
     {
         bail!("Expected bitfield message");
     }
-    send_interested(&mut stream).await?;
 
-    let unchoke = receive_message(&mut stream).await?;
+    send_interested(stream).await?;
+
+    let unchoke = receive_message(stream).await?;
     if unchoke[0] != 1
     {
         bail!("Expected unchoke message");
     }
+    Ok(())
+}
 
+async fn download_piece_data(
+    stream: &mut TcpStream,
+    piece_index: u32,
+    piece_length: usize,
+    torrent_info: &TorrentInfo,
+) -> Result<Vec<u8>>
+{
     let total_length = torrent_info.length.unwrap() as usize;
     let last_piece_length = total_length % piece_length;
-
     let actual_piece_length =
-        if piece_index as usize == total_length / piece_length && last_piece_length != 0 {
+        if piece_index as usize == total_length / piece_length && last_piece_length != 0
+        {
             last_piece_length
         }
         else { piece_length };
@@ -66,26 +99,12 @@ pub async fn download_piece(
         let begin = block_index * BLOCK_SIZE;
         let length = std::cmp::min(BLOCK_SIZE, actual_piece_length - begin);
 
-        send_request(&mut stream, piece_index, begin as u32, length as u32).await?;
-
-        let block = match receive_piece(&mut stream, piece_index, begin as u32, length).await
-        {
-            Ok(block) => block,
-            Err(e) => {
-                eprintln!("Error receiving piece: {:?}", e);
-                bail!("Invalid piece message");
-            }
-        };
+        send_request(stream, piece_index, begin as u32, length as u32).await?;
+        let block = receive_piece(stream, piece_index, begin as u32, length).await?;
         piece_data.extend_from_slice(&block);
     }
 
-    if verify_piece(&piece_data, piece_index, torrent_info)
-    {
-        save_piece_to_disk(piece_index, &piece_data)?;
-    }
-    else { bail!("Piece hash does not match"); }
-
-    Ok(())
+    Ok(piece_data)
 }
 
 async fn send_interested(stream: &mut TcpStream) -> Result<()>
@@ -199,8 +218,7 @@ fn verify_piece(piece_data: &[u8], piece_index: u32, torrent_info: &TorrentInfo)
     hasher.update(piece_data);
 
     let piece_hash = hasher.finalize();
-    let expected_hash_hex = &torrent_info.pieces.as_ref().unwrap()[piece_index as usize];
-    let expected_hash = hex::decode(expected_hash_hex).expect("Failed to decode expected hash");
+    let expected_hash = torrent_info.pieces.as_ref().unwrap().to_hash_vec()[piece_index as usize];
 
     piece_hash.as_slice() == expected_hash.as_slice()
 }
@@ -217,7 +235,7 @@ fn save_piece_to_disk(piece_index: u32, piece_data: &[u8]) -> Result<()>
     Ok(())
 }
 
-async fn send_handshake(stream: &mut TcpStream, info_hash: &[u8], peer_id: &[u8]) -> Result<()>
+async fn send_handshake(stream: &mut TcpStream, info_hash: &[u8], peer_id: &String) -> Result<()>
 {
     let mut handshake_msg = Vec::with_capacity(68);
 
@@ -225,7 +243,7 @@ async fn send_handshake(stream: &mut TcpStream, info_hash: &[u8], peer_id: &[u8]
     handshake_msg.extend_from_slice(PROTOCOL_STRING.as_bytes());
     handshake_msg.extend_from_slice(&RESERVED_BYTES);
     handshake_msg.extend_from_slice(info_hash);
-    handshake_msg.extend_from_slice(peer_id);
+    handshake_msg.extend_from_slice(peer_id.as_ref());
 
     stream
         .write_all(&handshake_msg)
@@ -253,16 +271,6 @@ async fn receive_handshake(stream: &mut TcpStream) -> Result<[u8; 20]>
     Ok(received_peer_id)
 }
 
-fn generate_peer_id() -> [u8; 20]
-{
-    let uuid = Uuid::new_v4();
-    let mut peer_id = [0u8; 20];
-
-    peer_id[..16].copy_from_slice(uuid.as_bytes());
-    peer_id[16..].copy_from_slice(&[0u8; 4]);
-    peer_id
-}
-
 async fn receive_message(stream: &mut TcpStream) -> Result<Vec<u8>>
 {
     let mut length_prefix = [0u8; 4];
@@ -281,4 +289,9 @@ async fn receive_message(stream: &mut TcpStream) -> Result<Vec<u8>>
         .context("Failed to read message")?;
 
     Ok(msg)
+}
+
+fn generate_peer_id() -> String
+{
+    crate::usecases::utils::generate_peer_id::generate_peer_id()
 }
