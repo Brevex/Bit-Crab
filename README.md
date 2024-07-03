@@ -1,5 +1,5 @@
 <br><p align="center">
-  <img src="https://github.com/Brevex/Crab-Torrent/blob/2b1bdd72713b0e48753e016dd603533f563e115e/readme%20images/crab_torrent_logo.png" alt="project logo" width="100">
+  <img src="https://github.com/Brevex/Crab-Torrent/blob/2b1bdd72713b0e48753e016dd603533f563e115e/readme%20images/crab_torrent_logo.png" alt="project logo" width="150">
   <h1 align="center">Crab Torrent</h1>
 </p><br>
 
