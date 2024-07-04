@@ -1,49 +1,23 @@
 use crate::domain::entities::info::TorrentInfo;
 
-pub fn print_torrent_info(torrent_info: &TorrentInfo)
-{
-    println!(
-        "Tracker URL: {}",
-        torrent_info
-            .announce
-            .as_ref()
-            .map(|url| url.as_str())
-            .unwrap_or("Tracker URL not found.")
-    );
+pub fn print_torrent_info(torrent_info: &TorrentInfo) {
+    println!("Tracker URL: {}", torrent_info.announce);
 
-    println!(
-        "Length: {}",
-        torrent_info
-            .length
-            .map_or("File length not found.".to_string(), |l| format!(
-                "{} bytes",
-                l
-            ))
-    );
+    println!("Length: {} bytes", torrent_info.length);
 
-    println!(
-        "Piece Length: {}",
-        torrent_info
-            .piece_length
-            .map_or("Piece length not found.".to_string(), |pl| format!(
-                "{}",
-                pl
-            ))
-    );
+    println!("Piece Length: {}", torrent_info.piece_length);
 
-    if let Some(info_hash) = &torrent_info.info_hash
-    {
-        println!("Info Hash: {:?}", info_hash);
-    }
-    match &torrent_info.pieces
-    {
-        Some(pieces) => {
-            println!("Piece Hashes:");
-            for piece in pieces.to_hash_vec()
-            {
-                println!("{:x?}", piece);
-            }
+    println!("Info Hash: {:?}", torrent_info.info_hash);
+}
+
+pub fn print_torrent_pieces(torrent_info: &TorrentInfo) {
+    println!("Piece Hashes:");
+
+    if let Ok(pieces) = torrent_info.pieces.to_hash_vec() {
+        for piece in pieces {
+            println!("{:x?}", piece);
         }
-        None => println!("Pieces not found.\n"),
+    } else {
+        eprintln!("Failed to convert pieces to hash vector");
     }
 }

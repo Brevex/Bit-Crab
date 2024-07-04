@@ -1,36 +1,26 @@
-#[repr(C)]
-pub struct Piece<T: ?Sized = [u8]>
-{
-    index: [u8; 4],
-    begin: [u8; 4],
-    block: T,
+pub struct Piece {
+    index: u32,
+    begin: u32,
+    block: Vec<u8>,
 }
 
 impl Piece
 {
-    pub fn index(&self) -> u32
-    {
-        u32::from_be_bytes(self.index)
-    }
-    pub fn begin(&self) -> u32
-    {
-        u32::from_be_bytes(self.begin)
-    }
-    pub fn block(&self) -> &[u8]
-    {
-        &self.block
-    }
-    const PIECE_LEAD: usize = std::mem::size_of::<Piece<()>>();
+    pub fn index(&self) -> u32 { self.index }
+    pub fn begin(&self) -> u32 { self.begin }
+    pub fn block(&self) -> &[u8] { &self.block }
 
-    pub fn ref_from_bytes(data: &[u8]) -> Option<&Self>
-    {
-        if data.len() < Self::PIECE_LEAD
-        {
-            return None;
-        }
-        let n = data.len();
-        let piece = &data[..n - Self::PIECE_LEAD] as *const [u8] as *const Piece;
+    pub fn from_bytes(data: &[u8]) -> Option<Self> {
+        if data.len() < 8 { return None; }
 
-        Some(unsafe { &*piece })
+        let index = u32::from_be_bytes([data[0], data[1], data[2], data[3]]);
+        let begin = u32::from_be_bytes([data[4], data[5], data[6], data[7]]);
+        let block = data[8..].to_vec();
+
+        Some(Self {
+            index,
+            begin,
+            block,
+        })
     }
 }
