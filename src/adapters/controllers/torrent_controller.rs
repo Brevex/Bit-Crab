@@ -7,7 +7,7 @@ use anyhow::{anyhow, Context, Result};
 use log::info;
 use sha1::{Digest, Sha1};
 
-use crate::adapters::presenters::torrent_presenter::print_torrent_info;
+use crate::adapters::presenters::torrent_presenter::{print_torrent_info, print_torrent_pieces};
 use crate::domain::entities::info::TorrentInfo;
 use crate::domain::entities::peer::Peer;
 use crate::domain::entities::torrent::Torrent;
@@ -16,8 +16,7 @@ use crate::usecases::extract_torrent_info::extract_torrent_info;
 use crate::usecases::peer_discovery::request_peers;
 use crate::usecases::peer_handshake::download_piece;
 
-pub async fn handle_torrent(file_path: &str) -> Result<()>
-{
+pub async fn handle_torrent(file_path: &str) -> Result<()> {
     info!("Reading torrent file: {}\n", file_path);
 
     let buffer = tokio::fs::read(file_path).await?;
@@ -26,6 +25,7 @@ pub async fn handle_torrent(file_path: &str) -> Result<()>
     let torrent_info = extract_torrent_info(&decoded_value, &info_hash);
 
     print_torrent_info(&torrent_info);
+    print_torrent_pieces(&torrent_info);
     println!("\n");
 
     let peers = request_peers(&torrent_info).await?;
@@ -35,13 +35,11 @@ pub async fn handle_torrent(file_path: &str) -> Result<()>
     Ok(())
 }
 
-fn decode_torrent(buffer: &[u8]) -> Result<Torrent, TorrentError>
-{
+fn decode_torrent(buffer: &[u8]) -> Result<Torrent, TorrentError> {
     serde_bencode::from_bytes(buffer).map_err(|e| TorrentError::TorrentParsingError(e.to_string()))
 }
 
-fn calculate_info_hash(decoded_value: &Torrent) -> Result<[u8; 20]>
-{
+fn calculate_info_hash(decoded_value: &Torrent) -> Result<[u8; 20]> {
     let mut hasher = Sha1::new();
     let info_encoded =
         serde_bencode::to_bytes(&decoded_value.info).context("Failed to re-encode info section")?;
@@ -51,48 +49,14 @@ fn calculate_info_hash(decoded_value: &Torrent) -> Result<[u8; 20]>
     Ok(result.into())
 }
 
-async fn download_pieces_from_peers(
-    peers: Vec<Peer>,
-    info_hash: &[u8; 20],
-    torrent_info: &TorrentInfo,
-) -> Result<()>
-{
-    let piece_length = torrent_info.piece_length.unwrap() as usize;
-    let num_pieces = torrent_info.pieces.as_ref().unwrap().to_hash_vec().len();
-    let file_name = &torrent_info.info.as_ref().unwrap().name;
-
-    for piece_index in 0..num_pieces
-    {
-        if let Err(_) = download_piece_from_peers(
-            &peers,
-            info_hash,
-            piece_index as u32,
-            piece_length,
-            torrent_info,
-        )
-            .await
-        {
-            info!("Failed to download piece {} from any peer\n", piece_index);
-        }
-    }
-    match combine_pieces_into_file(num_pieces, piece_length, file_name)
-    {
-        Ok(_) => info!("Successfully combined all pieces into the final file.\n"),
-        Err(_) => info!("Failed to combine pieces into the final file.\n"),
-    }
-    Ok(())
-}
-
 async fn download_piece_from_peers(
     peers: &[Peer],
     info_hash: &[u8; 20],
     piece_index: u32,
     piece_length: usize,
     torrent_info: &TorrentInfo,
-) -> Result<()>
-{
-    for peer in peers
-    {
+) -> Result<()> {
+    for peer in peers {
         let peer_addr = parse_peer_address(&peer)?;
 
         match download_piece(
@@ -120,15 +84,46 @@ async fn download_piece_from_peers(
     ))
 }
 
-fn parse_peer_address(peer: &Peer) -> Result<SocketAddr>
-{
+async fn download_pieces_from_peers(
+    peers: Vec<Peer>,
+    info_hash: &[u8; 20],
+    torrent_info: &TorrentInfo,
+) -> Result<()> {
+    let piece_length = torrent_info.piece_length as usize;
+    let num_pieces = torrent_info
+        .pieces
+        .to_hash_vec()
+        .context("Failed to convert pieces to hash vector")?
+        .len();
+    let file_name = &torrent_info.info.name;
+
+    for piece_index in 0..num_pieces {
+        if let Err(_) = download_piece_from_peers(
+            &peers,
+            info_hash,
+            piece_index as u32,
+            piece_length,
+            torrent_info,
+        )
+        .await
+        {
+            info!("Failed to download piece {} from any peer\n", piece_index);
+        }
+    }
+    match combine_pieces_into_file(num_pieces, piece_length, file_name) {
+        Ok(_) => info!("Successfully combined all pieces into the final file.\n"),
+        Err(_) => info!("Failed to combine pieces into the final file.\n"),
+    }
+    Ok(())
+}
+
+fn parse_peer_address(peer: &Peer) -> Result<SocketAddr> {
     format!("{}:{}", peer.ip, peer.port)
         .parse()
         .context("Invalid peer address format")
 }
 
-fn handle_download_error(e: anyhow::Error, piece_index: u32, peer_addr: &SocketAddr) -> Result<()>
-{
+fn handle_download_error(e: anyhow::Error, piece_index: u32, peer_addr: &SocketAddr) -> Result<()> {
     eprintln!(
         "Failed to download piece {} from peer {}: {:?}",
         piece_index, peer_addr, e
@@ -141,13 +136,11 @@ fn handle_download_error(e: anyhow::Error, piece_index: u32, peer_addr: &SocketA
     Ok(())
 }
 
-fn combine_pieces_into_file(num_pieces: usize, piece_length: usize, file_name: &str) -> Result<()>
-{
+fn combine_pieces_into_file(num_pieces: usize, piece_length: usize, file_name: &str) -> Result<()> {
     let final_path = Path::new(file_name);
     let mut final_file = File::create(final_path).context("Failed to create final file")?;
 
-    for piece_index in 0..num_pieces
-    {
+    for piece_index in 0..num_pieces {
         let path = format!("/tmp/test-piece-{}.tmp", piece_index);
         let mut piece_file = File::open(&path).context("Failed to open piece file")?;
         let mut buffer = Vec::with_capacity(piece_length);
@@ -162,4 +155,3 @@ fn combine_pieces_into_file(num_pieces: usize, piece_length: usize, file_name: &
     println!("Final file created at {:?}", final_path);
     Ok(())
 }
-

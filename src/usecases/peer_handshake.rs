@@ -1,4 +1,3 @@
-use std::convert::TryInto;
 use std::fs::File;
 use std::io::Write;
 use std::net::SocketAddr;
@@ -9,10 +8,10 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
 use crate::domain::entities::info::TorrentInfo;
+use crate::domain::entities::peer::Handshake;
 use crate::domain::entities::piece::Piece;
+use crate::usecases::utils::generate_peer_id::generate_peer_id;
 
-const RESERVED_BYTES: [u8; 8] = [0; 8];
-const PROTOCOL_STRING: &str = "BitTorrent protocol";
 const BLOCK_SIZE: usize = 16 * 1024;
 
 pub(crate) async fn download_piece(
@@ -21,8 +20,7 @@ pub(crate) async fn download_piece(
     piece_index: u32,
     piece_length: usize,
     torrent_info: &TorrentInfo,
-) -> Result<()>
-{
+) -> Result<()> {
     let peer_id = generate_peer_id();
     let mut stream = connect_to_peer(peer_addr).await?;
     perform_handshake(&mut stream, info_hash, &peer_id).await?;
@@ -31,16 +29,15 @@ pub(crate) async fn download_piece(
     let piece_data =
         download_piece_data(&mut stream, piece_index, piece_length, torrent_info).await?;
 
-    if verify_piece(&piece_data, piece_index, torrent_info)
-    {
+    if verify_piece(&piece_data, piece_index, torrent_info) {
         save_piece_to_disk(piece_index, &piece_data)?;
+    } else {
+        bail!("Piece hash does not match");
     }
-    else { bail!("Piece hash does not match"); }
     Ok(())
 }
 
-async fn connect_to_peer(peer_addr: &SocketAddr) -> Result<TcpStream>
-{
+async fn connect_to_peer(peer_addr: &SocketAddr) -> Result<TcpStream> {
     TcpStream::connect(peer_addr)
         .await
         .context("Failed to connect to peer")
@@ -48,28 +45,40 @@ async fn connect_to_peer(peer_addr: &SocketAddr) -> Result<TcpStream>
 
 async fn perform_handshake(
     stream: &mut TcpStream,
-    info_hash: &[u8],
-    peer_id: &String,
-) -> Result<()>
-{
-    send_handshake(stream, info_hash, peer_id).await?;
-    receive_handshake(stream).await?;
+    info_hash: &[u8; 20],
+    peer_id: &[u8; 20],
+) -> Result<()> {
+    let handshake = Handshake::new(*info_hash, *peer_id);
+
+    stream
+        .write_all(&handshake.to_bytes())
+        .await
+        .context("Failed to send handshake")?;
+
+    let mut response = [0u8; 68];
+
+    stream
+        .read_exact(&mut response)
+        .await
+        .context("Failed to read handshake response")?;
+
+    let received_handshake = Handshake::from_bytes(&response)?;
+    if received_handshake.info_hash != *info_hash {
+        bail!("Info hash mismatch");
+    }
     Ok(())
 }
 
-async fn ensure_interested_and_unchoked(stream: &mut TcpStream) -> Result<()>
-{
+async fn ensure_interested_and_unchoked(stream: &mut TcpStream) -> Result<()> {
     let bitfield = receive_message(stream).await?;
-    if bitfield[0] != 5
-    {
+    if bitfield[0] != 5 {
         bail!("Expected bitfield message");
     }
 
     send_interested(stream).await?;
 
     let unchoke = receive_message(stream).await?;
-    if unchoke[0] != 1
-    {
+    if unchoke[0] != 1 {
         bail!("Expected unchoke message");
     }
     Ok(())
@@ -80,22 +89,20 @@ async fn download_piece_data(
     piece_index: u32,
     piece_length: usize,
     torrent_info: &TorrentInfo,
-) -> Result<Vec<u8>>
-{
-    let total_length = torrent_info.length.unwrap() as usize;
+) -> Result<Vec<u8>> {
+    let total_length = torrent_info.length as usize;
     let last_piece_length = total_length % piece_length;
     let actual_piece_length =
-        if piece_index as usize == total_length / piece_length && last_piece_length != 0
-        {
+        if piece_index as usize == total_length / piece_length && last_piece_length != 0 {
             last_piece_length
-        }
-        else { piece_length };
+        } else {
+            piece_length
+        };
 
     let mut piece_data = Vec::with_capacity(actual_piece_length);
     let num_blocks = (actual_piece_length + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
-    for block_index in 0..num_blocks
-    {
+    for block_index in 0..num_blocks {
         let begin = block_index * BLOCK_SIZE;
         let length = std::cmp::min(BLOCK_SIZE, actual_piece_length - begin);
 
@@ -103,12 +110,10 @@ async fn download_piece_data(
         let block = receive_piece(stream, piece_index, begin as u32, length).await?;
         piece_data.extend_from_slice(&block);
     }
-
     Ok(piece_data)
 }
 
-async fn send_interested(stream: &mut TcpStream) -> Result<()>
-{
+async fn send_interested(stream: &mut TcpStream) -> Result<()> {
     let msg = [0, 0, 0, 1, 2];
 
     stream
@@ -117,8 +122,7 @@ async fn send_interested(stream: &mut TcpStream) -> Result<()>
         .context("Failed to send interested message")
 }
 
-async fn send_request(stream: &mut TcpStream, index: u32, begin: u32, length: u32) -> Result<()>
-{
+async fn send_request(stream: &mut TcpStream, index: u32, begin: u32, length: u32) -> Result<()> {
     let mut msg = Vec::with_capacity(17);
 
     msg.extend_from_slice(&(13u32.to_be_bytes()));
@@ -138,8 +142,7 @@ async fn receive_piece(
     index: u32,
     begin: u32,
     length: usize,
-) -> Result<Vec<u8>>
-{
+) -> Result<Vec<u8>> {
     let mut length_prefix = [0u8; 4];
 
     if let Err(e) = stream
@@ -154,19 +157,15 @@ async fn receive_piece(
     let msg_length = u32::from_be_bytes(length_prefix) as usize;
     println!("Message length: {}", msg_length);
 
-    if msg_length != 9 + length
-    {
+    if msg_length != 9 + length {
         bail!(
-            "Unexpected message length: \
-        expected {}, \
-        got {}",
+            "Unexpected message length: expected {}, got {}",
             9 + length,
             msg_length
         );
     }
 
     let mut msg = vec![0u8; msg_length];
-
     if let Err(e) = stream
         .read_exact(&mut msg)
         .await
@@ -176,55 +175,52 @@ async fn receive_piece(
         bail!("Failed to read piece message");
     }
 
-    if msg[0] != 7
-    {
+    if msg[0] != 7 {
         bail!(
-            "Invalid piece message: \
-        expected message id 7, \
-        got {}",
+            "Invalid piece message: expected message id 7, got {}",
             msg[0]
         );
     }
 
-    if let Some(piece) = Piece::ref_from_bytes(&msg[1..])
-    {
-        if piece.index() != index
-        {
+    if let Some(piece) = Piece::from_bytes(&msg[1..]) {
+        if piece.index() != index {
             bail!(
-                "Piece index mismatch: \
-            expected {}, \
-            got {}",
+                "Piece index mismatch: expected {}, got {}",
                 index,
                 piece.index()
             );
         }
-        if piece.begin() != begin
-        {
+        if piece.begin() != begin {
             bail!(
-                "Piece begin mismatch: \
-            expected {}, got {}",
+                "Piece begin mismatch: expected {}, got {}",
                 begin,
                 piece.begin()
             );
         }
         Ok(piece.block().to_vec())
+    } else {
+        bail!("Failed to decode piece message");
     }
-    else { bail!("Failed to decode piece message"); }
 }
 
-fn verify_piece(piece_data: &[u8], piece_index: u32, torrent_info: &TorrentInfo) -> bool
-{
+fn verify_piece(piece_data: &[u8], piece_index: u32, torrent_info: &TorrentInfo) -> bool {
     let mut hasher = Sha1::new();
     hasher.update(piece_data);
 
     let piece_hash = hasher.finalize();
-    let expected_hash = torrent_info.pieces.as_ref().unwrap().to_hash_vec()[piece_index as usize];
-
-    piece_hash.as_slice() == expected_hash.as_slice()
+    match torrent_info.pieces.to_hash_vec() {
+        Ok(hash_vec) => {
+            let expected_hash = hash_vec[piece_index as usize];
+            piece_hash.as_slice() == expected_hash.as_slice()
+        }
+        Err(err) => {
+            eprintln!("Failed to convert pieces to hash vector: {}", err);
+            false
+        }
+    }
 }
 
-fn save_piece_to_disk(piece_index: u32, piece_data: &[u8]) -> Result<()>
-{
+fn save_piece_to_disk(piece_index: u32, piece_data: &[u8]) -> Result<()> {
     let path = format!("/tmp/test-piece-{}.tmp", piece_index);
     let mut file = File::create(&path).context("Failed to create file")?;
 
@@ -235,44 +231,7 @@ fn save_piece_to_disk(piece_index: u32, piece_data: &[u8]) -> Result<()>
     Ok(())
 }
 
-async fn send_handshake(stream: &mut TcpStream, info_hash: &[u8], peer_id: &String) -> Result<()>
-{
-    let mut handshake_msg = Vec::with_capacity(68);
-
-    handshake_msg.push(PROTOCOL_STRING.len() as u8);
-    handshake_msg.extend_from_slice(PROTOCOL_STRING.as_bytes());
-    handshake_msg.extend_from_slice(&RESERVED_BYTES);
-    handshake_msg.extend_from_slice(info_hash);
-    handshake_msg.extend_from_slice(peer_id.as_ref());
-
-    stream
-        .write_all(&handshake_msg)
-        .await
-        .context("Failed to send handshake")
-}
-
-async fn receive_handshake(stream: &mut TcpStream) -> Result<[u8; 20]>
-{
-    let mut response = [0u8; 68];
-    stream
-        .read_exact(&mut response)
-        .await
-        .context("Failed to read handshake response")?;
-
-    if response[0] as usize != PROTOCOL_STRING.len()
-        || &response[1..1 + PROTOCOL_STRING.len()] != PROTOCOL_STRING.as_bytes()
-    {
-        bail!("Invalid handshake response");
-    }
-    let received_peer_id: [u8; 20] = response[48..68]
-        .try_into()
-        .context("Failed to extract peer ID from response")?;
-
-    Ok(received_peer_id)
-}
-
-async fn receive_message(stream: &mut TcpStream) -> Result<Vec<u8>>
-{
+async fn receive_message(stream: &mut TcpStream) -> Result<Vec<u8>> {
     let mut length_prefix = [0u8; 4];
 
     stream
@@ -289,9 +248,4 @@ async fn receive_message(stream: &mut TcpStream) -> Result<Vec<u8>>
         .context("Failed to read message")?;
 
     Ok(msg)
-}
-
-fn generate_peer_id() -> String
-{
-    crate::usecases::utils::generate_peer_id::generate_peer_id()
 }
