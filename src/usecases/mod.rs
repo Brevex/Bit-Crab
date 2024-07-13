@@ -1,4 +1,4 @@
-pub mod extract_torrent_info;
-pub mod peer_discovery;
-pub mod peer_handshake;
-mod utils;
+pub mod parse_torrent_file;
+pub mod peer_tracker;
+pub mod perform_handshake;
+pub mod download_torrent;
