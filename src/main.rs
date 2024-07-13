@@ -1,20 +1,23 @@
-use anyhow::Result;
-use env_logger::Env;
-use log::info;
+mod entities;
+pub mod usecases;
+pub mod utils;
 
-use adapters::controllers::torrent_controller::handle_torrent;
-
-mod adapters;
-mod domain;
-mod usecases;
+use crate::usecases::parse_torrent_file::{
+    parse_torrent_file, print_torrent_info, process_torrent,
+};
+use std::path::PathBuf;
 
 #[tokio::main]
-async fn main() -> Result<()> {
-    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
+async fn main()
+{
+    let file_path = "./src/test3.torrent";
 
-    let file_path = "./src/test.torrent";
-
-    info!("Starting torrent handling for file: {}", file_path);
-    handle_torrent(file_path).await?;
-    Ok(())
+    match parse_torrent_file(PathBuf::from(file_path)).await
+    {
+        Ok(torrent) => {
+            print_torrent_info(&torrent).await;
+            process_torrent(&torrent).await;
+        }
+        Err(e) => { eprintln!("Failed to parse torrent file: {}", e); }
+    }
 }
